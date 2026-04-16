@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "'준비중' 청년 아카이브",
+  title: "'준비중' 청년 이력서",
   description: "이력서/경력기술서를 블록 기반으로 관리하고 Word/PDF로 내보내세요",
 };
 

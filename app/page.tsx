@@ -61,7 +61,7 @@ export default function HomePage() {
       <div className="max-w-5xl mx-auto py-12 px-4">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-10">
-          <h1 className="text-2xl font-bold text-gray-900">&apos;준비중&apos; 청년 아카이브</h1>
+          <h1 className="text-2xl font-bold text-gray-900">&apos;준비중&apos; 청년 이력서</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">{getUser()?.name}</span>
             <button
