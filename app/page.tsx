@@ -15,11 +15,11 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoggedIn()) {
-      router.replace('/login')
-      return
+    if (isLoggedIn()) {
+      loadResumes()
+    } else {
+      setLoading(false)
     }
-    loadResumes()
   }, [router])
 
   const loadResumes = async () => {
@@ -28,13 +28,8 @@ export default function HomePage() {
     setLoading(false)
   }
 
-  const handleCreateFromTemplate = async (templateId: string) => {
-    const template = TEMPLATES.find((t) => t.id === templateId)
-    const resume = await createResume(
-      template?.name ? `${template.name} 이력서` : '새 이력서',
-      templateId
-    )
-    router.push(`/resume/${resume.id}`)
+  const handleCreateFromTemplate = (templateId: string) => {
+    router.push(`/resume/new?template=${templateId}`)
   }
 
   const handleDelete = async (id: string, title: string) => {
@@ -44,6 +39,10 @@ export default function HomePage() {
   }
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isLoggedIn()) {
+      router.push('/login')
+      return
+    }
     const file = e.target.files?.[0]
     if (!file) return
     const text = await file.text()
@@ -61,28 +60,39 @@ export default function HomePage() {
       <div className="max-w-5xl mx-auto py-12 px-4">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-10">
-          <h1 className="text-2xl font-bold text-gray-900">&apos;준비중&apos; 청년 이력서</h1>
+          <h1 className="text-2xl font-bold text-gray-900">&apos;안쉬었음&apos; 청년 저장소</h1>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">{getUser()?.name}</span>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              JSON 가져오기
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              onChange={handleImport}
-              className="hidden"
-            />
-            <button
-              onClick={() => { clearAuth(); router.replace('/login') }}
-              className="px-3 py-2 text-sm text-gray-500 hover:text-red-500 transition-colors"
-            >
-              로그아웃
-            </button>
+            {isLoggedIn() ? (
+              <>
+                <span className="text-sm text-gray-500">{getUser()?.name}</span>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  JSON 가져오기
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleImport}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => { clearAuth(); router.replace('/') }}
+                  className="px-3 py-2 text-sm text-gray-500 hover:text-red-500 transition-colors"
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => router.push('/login')}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                로그인
+              </button>
+            )}
           </div>
         </div>
 
@@ -129,7 +139,7 @@ export default function HomePage() {
         </section>
 
         {/* 내 이력서 목록 */}
-        {loading ? (
+        {isLoggedIn() && (loading ? (
           <div className="text-center py-8 text-gray-400">불러오는 중...</div>
         ) : resumes.length > 0 && (
           <section>
@@ -175,7 +185,7 @@ export default function HomePage() {
               ))}
             </div>
           </section>
-        )}
+        ))}
       </div>
     </div>
   )

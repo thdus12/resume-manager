@@ -17,10 +17,10 @@ function LoginContent() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="w-full max-w-sm bg-white rounded-xl shadow-sm border border-gray-200 p-8">
         <h1 className="text-xl font-bold text-gray-900 text-center mb-2">
-          &apos;준비중&apos; 청년 이력서
+          &apos;안쉬었음&apos; 청년 저장소
         </h1>
         <p className="text-sm text-gray-500 text-center mb-8">
-          소셜 계정으로 간편하게 시작하세요
+          안 쉬었다는 증거, 이력서로 만들어 보관하세요
         </p>
 
         {error && (

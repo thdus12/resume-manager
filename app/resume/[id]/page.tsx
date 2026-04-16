@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Resume, ResumeStyle } from '@/lib/types'
-import { fetchResume, updateResume, exportResumeJson, parseResumeFile } from '@/lib/api-client'
+import { fetchResume, updateResume, createResume, parseResumeFile } from '@/lib/api-client'
 import { generateWord } from '@/lib/word-generator'
 import { generatePdf } from '@/lib/pdf-generator'
 import { getTemplate } from '@/lib/templates'
@@ -13,38 +13,96 @@ import ResumePreview from '@/components/ResumePreview'
 import StylePanel from '@/components/StylePanel'
 
 export default function ResumeEditPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center text-gray-400">
+        불러오는 중...
+      </div>
+    }>
+      <ResumeEditContent />
+    </Suspense>
+  )
+}
+
+function ResumeEditContent() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const id = params.id as string
+  const isNew = id === 'new'
 
   const [resume, setResume] = useState<Resume | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingTitle, setEditingTitle] = useState(false)
   const [parsing, setParsing] = useState(false)
+  const [unsaved, setUnsaved] = useState(false)
   const aiInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (!isLoggedIn()) {
-      router.replace('/login')
-      return
-    }
-    fetchResume(id).then((data) => {
-      if (!data) {
+    if (isNew) {
+      const templateId = searchParams.get('template') || 'classic'
+      const template = getTemplate(templateId)
+      if (!template) {
         router.push('/')
         return
       }
-      setResume(data)
+      const localResume: Resume = {
+        id: 'new',
+        title: `${template.name} 이력서`,
+        templateId,
+        style: { ...template.style },
+        blocks: template.defaultBlocks.map((b) => ({
+          ...b,
+          id: crypto.randomUUID(),
+          collapsed: false,
+        })),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setResume(localResume)
       setLoading(false)
-    })
-  }, [id, router])
+    } else {
+      if (!isLoggedIn()) {
+        router.replace('/login')
+        return
+      }
+      fetchResume(id).then((data) => {
+        if (!data) {
+          router.push('/')
+          return
+        }
+        setResume(data)
+        setLoading(false)
+      })
+    }
+  }, [id, router, isNew, searchParams])
 
   const handleUpdate = useCallback((updated: Resume) => {
     setResume(updated)
+    setUnsaved(true)
   }, [])
+
+  const saveToServer = async (data: Resume): Promise<Resume> => {
+    if (!isLoggedIn()) {
+      router.push('/login')
+      throw new Error('로그인이 필요합니다')
+    }
+    if (data.id === 'new') {
+      const created = await createResume(data.title, data.templateId)
+      const saved = await updateResume({ ...created, blocks: data.blocks, style: data.style })
+      router.replace(`/resume/${saved.id}`, { scroll: false })
+      return saved
+    }
+    return await updateResume(data)
+  }
 
   const handleTitleSave = async () => {
     if (!resume) return
-    await updateResume(resume)
+    try {
+      const saved = await saveToServer(resume)
+      setResume(saved)
+      setUnsaved(false)
+    } catch {}
     setEditingTitle(false)
   }
 
@@ -52,7 +110,11 @@ export default function ResumeEditPage() {
     if (!resume) return
     const updated = { ...resume, style }
     setResume(updated)
-    await updateResume(updated)
+    try {
+      const saved = await saveToServer(updated)
+      setResume(saved)
+      setUnsaved(false)
+    } catch {}
   }
 
   const handleAiClick = () => {
@@ -64,11 +126,21 @@ export default function ResumeEditPage() {
     if (!file || !resume) return
     e.target.value = ''
 
+    if (!isLoggedIn()) {
+      router.push('/login')
+      return
+    }
+
     setParsing(true)
     try {
       const blocks = await parseResumeFile(file)
-      const updated = await updateResume({ ...resume, blocks })
+      const updated = { ...resume, blocks }
       setResume(updated)
+      try {
+        const saved = await saveToServer(updated)
+        setResume(saved)
+        setUnsaved(false)
+      } catch {}
     } catch (err) {
       alert(err instanceof Error ? err.message : '파싱에 실패했습니다')
     } finally {
@@ -86,13 +158,14 @@ export default function ResumeEditPage() {
       id: crypto.randomUUID(),
       collapsed: false,
     }))
-    const updated = await updateResume({ ...resume, blocks: emptyBlocks })
+    const updated = { ...resume, blocks: emptyBlocks }
     setResume(updated)
+    setUnsaved(true)
   }
 
   const handleExportJson = async () => {
     if (!resume) return
-    const json = await exportResumeJson(resume.id)
+    const json = JSON.stringify(resume, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -154,6 +227,23 @@ export default function ResumeEditPage() {
         </div>
 
         <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              if (!resume) return
+              try {
+                const saved = await saveToServer(resume)
+                setResume(saved)
+                setUnsaved(false)
+              } catch {}
+            }}
+            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+              unsaved
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-200 text-gray-500'
+            }`}
+          >
+            {unsaved ? '저장' : '저장됨'}
+          </button>
           <button
             onClick={handleAiClick}
             disabled={parsing}
