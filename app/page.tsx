@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Resume } from '@/lib/types'
 import { fetchResumes, createResume, deleteResumeApi, importResumeJson } from '@/lib/api-client'
 import { TEMPLATES } from '@/lib/templates'
+import { isLoggedIn, getUser, clearAuth } from '@/lib/auth'
 import ResumePreview from '@/components/ResumePreview'
 
 export default function HomePage() {
@@ -13,15 +14,19 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      router.replace('/login')
+      return
+    }
+    loadResumes()
+  }, [router])
+
   const loadResumes = async () => {
     const data = await fetchResumes()
     setResumes(data)
     setLoading(false)
   }
-
-  useEffect(() => {
-    loadResumes()
-  }, [])
 
   const handleCreateFromTemplate = async (templateId: string) => {
     const template = TEMPLATES.find((t) => t.id === templateId)
@@ -57,7 +62,8 @@ export default function HomePage() {
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-10">
           <h1 className="text-2xl font-bold text-gray-900">&apos;준비중&apos; 청년 아카이브</h1>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">{getUser()?.name}</span>
             <button
               onClick={() => fileInputRef.current?.click()}
               className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -71,6 +77,12 @@ export default function HomePage() {
               onChange={handleImport}
               className="hidden"
             />
+            <button
+              onClick={() => { clearAuth(); router.replace('/login') }}
+              className="px-3 py-2 text-sm text-gray-500 hover:text-red-500 transition-colors"
+            >
+              로그아웃
+            </button>
           </div>
         </div>
 

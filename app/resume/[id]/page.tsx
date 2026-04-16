@@ -7,6 +7,7 @@ import { fetchResume, updateResume, exportResumeJson, parseResumeFile } from '@/
 import { generateWord } from '@/lib/word-generator'
 import { generatePdf } from '@/lib/pdf-generator'
 import { getTemplate } from '@/lib/templates'
+import { isLoggedIn } from '@/lib/auth'
 import ResumeEditor from '@/components/ResumeEditor'
 import ResumePreview from '@/components/ResumePreview'
 import StylePanel from '@/components/StylePanel'
@@ -23,6 +24,10 @@ export default function ResumeEditPage() {
   const aiInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    if (!isLoggedIn()) {
+      router.replace('/login')
+      return
+    }
     fetchResume(id).then((data) => {
       if (!data) {
         router.push('/')
